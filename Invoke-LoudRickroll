@@ -1,0 +1,29 @@
+function Invoke-LoudRickRoll {
+<#
+.SYNOPSIS
+
+    Invoke-LoudRickRoll
+
+    This script is evil. It launches a hidden IE instance to start playing a music video.
+    Then it locks the volume up key so that 100% volume is reached.
+
+    Author: Chris Campbell (@obscuresec)
+    License: BSD 3-Clause
+
+.EXAMPLE
+
+    PS C:\>Invoke-LoudRickRoll
+#>
+
+    $IEComObject = New-Object -com "InternetExplorer.Application"
+    $IEComObject.visible = $False
+    $IEComObject.navigate("http://www.youtube.com/watch?v=oHg5SJYRHA0")
+    $EndTime = (Get-Date).addminutes(3)
+        
+        Do {
+            $WscriptObject = New-Object -com wscript.shell
+            $WscriptObject.SendKeys([char]175)
+        }
+        Until ((Get-Date) -gt $EndTime)
+}
+Invoke-LoudRickRoll
