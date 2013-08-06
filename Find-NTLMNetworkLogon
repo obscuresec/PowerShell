@@ -23,6 +23,13 @@ Function Find-NTLMNetworkLogon {
     http://www.obscuresec.com/
 #>
     
+    #Check for admin rights
+    if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
+    {
+        Write-Error "Not running as admin. Run the script with elevated credentials"
+        Return
+    }
+    
     $Filter = "*[EventData[Data = 'NtLmSsp ']]"
     $Events = Get-WinEvent -Logname "security" -FilterXPath $Filter | Where-Object {$_.ID -eq 4624}
                 
@@ -43,4 +50,4 @@ Function Find-NTLMNetworkLogon {
     else {
         Write-Output "No Successful NTLM Network Logons found."
     }
-}  
+}
