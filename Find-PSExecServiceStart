@@ -1,0 +1,36 @@
+Function Find-PSExecServiceStart {
+<#
+.SYNOPSIS
+ 
+    PoC function that uses Get-Eventlog to match signatures of PsExec.
+    
+    Function: Find-PSExecServiceStart
+    Author: Chris Campbell (@obscuresec)
+    License: BSD 3-Clause
+    Required Dependencies: None
+    Optional Dependencies: None
+    
+.EXAMPLE
+
+    Find-PSExecServiceStart
+
+.LINK
+
+    http://www.obscuresec.com/
+#>
+    
+    $ServiceStarted = (Get-Eventlog -LogName "system" | Where-Object {$_.EventID -eq 7045} | Where-Object {$_.Message -like "*PSExec*"})
+        
+    $ServiceStarted | Foreach-Object {
+        $UserName = $_.UserName
+        $Time = $_.TimeGenerated
+        $Hostname = $_.MachineName
+            
+        $ObjectProps = @{'Hostname' = $Hostname;
+                         'UserName' = $UserName;
+                         'Time' = $Time;}
+            
+        $Results = New-Object -TypeName PSObject -Property $ObjectProps
+        Write-Output $Results
+    }
+}
