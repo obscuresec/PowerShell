@@ -84,7 +84,7 @@ function Set-MacAttribute {
 
     $FileInfoObject = (Get-Item $FilePath)
     
-    if ($PSBoundParameters['All']){
+    if ($PSBoundParameters['AllMacAttributes']){
         $Modified = $AllMacAttributes
         $Accessed = $AllMacAttributes
         $Created = $AllMacAttributes
